@@ -2,8 +2,13 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+	"log/slog"
 )
+
+type Message struct {
+	Topic string
+	Data  []byte
+}
 
 type Config struct {
 	ListenAddr        string
@@ -12,28 +17,69 @@ type Config struct {
 
 type Server struct {
 	*Config
+
 	topics map[string]Storer
+
+	consumers []Consumer
+	producers []Producer
+	producech chan Message
+	quitch    chan struct{}
 }
 
 func NewServer(cfg *Config) (*Server, error) {
+	producech := make(chan Message)
 	return &Server{
-		Config: cfg,
-		topics: make(map[string]Storer),
+		Config:    cfg,
+		topics:    make(map[string]Storer),
+		quitch:    make(chan struct{}),
+		producech: producech,
+		producers: []Producer{
+			NewHTTPProducer(cfg.ListenAddr, producech),
+		},
 	}, nil
 }
 
 func (s *Server) Start() {
-	http.ListenAndServe(s.ListenAddr, s)
-}
-
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
-}
-
-func (s *Server) createTopic(name string) bool {
-	if _, ok := s.topics[name]; !ok {
-		s.topics[name] = s.StoreProducerFunc()
-		return true
+	// for _, consumer := range s.consumers {
+	// 	if err := consumer.Start(); err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// }
+	for _, producer := range s.producers {
+		go func(p Producer) {
+			if err := p.Start(); err != nil {
+				fmt.Println(err)
+			}
+		}(producer)
 	}
-	return false
+	s.loop()
+}
+
+func (s *Server) loop() {
+	for {
+		select {
+		case <-s.quitch:
+			return
+		case msg := <-s.producech:
+			offset, err := s.publish(msg)
+			if err != nil {
+				slog.Error("failed to publish", err)
+			} else {
+				slog.Info("produced message", "offset", offset)
+			}
+		}
+	}
+}
+
+func (s *Server) publish(msg Message) (int, error) {
+	store := s.getStoreForTopic(msg.Topic)
+	return store.Push(msg.Data)
+}
+
+func (s *Server) getStoreForTopic(topic string) Storer {
+	if _, ok := s.topics[topic]; !ok {
+		s.topics[topic] = s.StoreProducerFunc()
+		slog.Info("created new topic", "topic", topic)
+	}
+	return s.topics[topic]
 }

@@ -9,7 +9,7 @@ type StoreProducerFunc func() Storer
 
 type Storer interface {
 	Push([]byte) (int, error)
-	Fetch(int) ([]byte, error)
+	Get(int) ([]byte, error)
 }
 
 type MemoryStore struct {
@@ -31,7 +31,7 @@ func (s *MemoryStore) Push(b []byte) (int, error) {
 	return len(s.data) - 1, nil
 }
 
-func (s *MemoryStore) Fetch(offset int) ([]byte, error) {
+func (s *MemoryStore) Get(offset int) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

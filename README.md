@@ -1,0 +1,1 @@
+curl -X POST http://localhost:3000/publish/foobarbaz --data-binary 'some arbitrary boites'
