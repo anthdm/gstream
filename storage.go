@@ -10,6 +10,7 @@ type StoreProducerFunc func() Storer
 type Storer interface {
 	Push([]byte) (int, error)
 	Get(int) ([]byte, error)
+	Size() int
 }
 
 type MemoryStore struct {
@@ -42,4 +43,11 @@ func (s *MemoryStore) Get(offset int) ([]byte, error) {
 		return nil, fmt.Errorf("offset (%d) too high", offset)
 	}
 	return s.data[offset], nil
+}
+
+func (s *MemoryStore) Size() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return len(s.data) - 1
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -13,11 +13,10 @@ type Producer interface {
 
 type HTTPProducer struct {
 	listenAddr string
-	server     *Server
-	producech  chan<- Message
+	producech  chan<- MessageToTopic
 }
 
-func NewHTTPProducer(listenAddr string, producech chan Message) *HTTPProducer {
+func NewHTTPProducer(listenAddr string, producech chan MessageToTopic) *HTTPProducer {
 	return &HTTPProducer{
 		listenAddr: listenAddr,
 		producech:  producech,
@@ -29,25 +28,26 @@ func (p *HTTPProducer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		path  = strings.TrimPrefix(r.URL.Path, "/")
 		parts = strings.Split(path, "/")
 	)
-	// commit
-	if r.Method == "GET" {
-	}
+
+	// // commit
+	// if r.Method == "GET" {
+	// }
 
 	if r.Method == "POST" {
 		if len(parts) != 2 {
 			fmt.Println("invalid action")
 			return
 		}
-		p.producech <- Message{
-			Data:  []byte("we dont know yet"),
-			Topic: parts[1],
+		topic := parts[1]
+		p.producech <- MessageToTopic{
+			Payload: []byte("we don't know yet"),
+			Topic:   topic,
 		}
+		fmt.Println(topic)
 	}
-
-	fmt.Println(parts)
 }
 
 func (p *HTTPProducer) Start() error {
-	slog.Info("HTTP transport started", "port", p.listenAddr)
+	log.Printf("HTTP transport started at port = %s", p.listenAddr)
 	return http.ListenAndServe(p.listenAddr, p)
 }
