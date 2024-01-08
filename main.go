@@ -6,14 +6,18 @@ import (
 
 func main() {
 	cfg := &Config{
-		ListenAddr: ":3000",
-		StoreProducerFunc: func() Storer {
+		HTTPListenAddr: ":3000",
+		WSListenAddr:   ":4000",
+		StorageProducerFunc: func() Storer {
 			return NewMemoryStore()
 		},
 	}
+
 	s, err := NewServer(cfg)
+
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	s.Start()
 }
